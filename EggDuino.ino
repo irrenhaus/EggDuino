@@ -20,6 +20,9 @@
  */
 
 #include "AccelStepper.h" // nice lib from http://www.airspayce.com/mikem/arduino/AccelStepper/
+
+#include "AFMotor.h"
+
 #include "VarSpeedServo.h" // variable speed servo lib https://github.com/netlabtoolkit/VarSpeedServo
 #include "SerialCommand.h" //nice lib from Stefan Rado, https://github.com/kroimon/Arduino-SerialCommand
 #include <avr/eeprom.h>
@@ -28,7 +31,8 @@
 
 #define initSting "EBBv13_and_above Protocol emulated by Eggduino-Firmware V1.x"
 
-#define BOARD_ZAGGO
+#define BOARD_MOTOR_SHIELD
+//#define BOARD_ZAGGO
 //#define BOARD_CNCSHIELD
 
 #ifdef BOARD_ZAGGO
@@ -73,6 +77,42 @@
 	#define motorsButton A2      // motors enable button ("Resume")
 #endif
 
+#ifdef BOARD_MOTOR_SHIELD
+    #define servoPin 10
+    #define engraverPin 11
+
+    // two stepper motors one on each port
+    AF_Stepper motor1(200, 1);
+    AF_Stepper motor2(200, 2);
+
+    // you can change these to DOUBLE or INTERLEAVE or MICROSTEP
+    // wrappers for the first motor
+#define MM_STEP MICROSTEP
+
+    void forwardstep1() {  
+        motor1.onestep(FORWARD, MM_STEP);
+    }
+    void backwardstep1() {  
+        motor1.onestep(BACKWARD, MM_STEP);
+    }
+    // wrappers for the second motor
+    void forwardstep2() {  
+        motor2.onestep(FORWARD, MM_STEP);
+    }
+    void backwardstep2() {  
+        motor2.onestep(BACKWARD, MM_STEP);
+    }
+
+    // Motor shield has two motor ports, now we'll wrap them in an AccelStepper object
+    AccelStepper rotMotor(forwardstep1, backwardstep1);
+    AccelStepper penMotor(forwardstep2, backwardstep2);
+
+#define rotMicrostep 16  //MicrostepMode, only 1,2,4,8,16 allowed, because of Integer-Math in this Sketch
+#define penMicrostep 16 //MicrostepMode, only 1,2,4,8,16 allowed, because of Integer-Math in this Sketch
+#else
+    AccelStepper rotMotor(1, step1, dir1);
+    AccelStepper penMotor(1, step2, dir2);
+#endif
 
 //-----------------------------------------------------------------------------------------------------------
 
@@ -90,19 +130,17 @@ void initHardware();
 void moveOneStep();
 
 //make Objects
-AccelStepper rotMotor(1, step1, dir1);
-AccelStepper penMotor(1, step2, dir2);
 VarSpeedServo penServo;
 SerialCommand SCmd;
 //create Buttons
 #ifdef prgButton
-	Button prgButtonToggle(prgButton, setprgButtonState);
+Button prgButtonToggle(prgButton, setprgButtonState);
 #endif
 #ifdef penToggleButton
-	Button penToggle(penToggleButton, doTogglePen);
+Button penToggle(penToggleButton, doTogglePen);
 #endif
 #ifdef motorsButton
-	Button motorsToggle(motorsButton, toggleMotors);
+Button motorsToggle(motorsButton, toggleMotors);
 #endif
 // Variables... be careful, by messing around here, everything has a reason and crossrelations...
 int penMin=0;
@@ -124,25 +162,25 @@ float penSpeed=0; // these are local variables for Function SteppermotorMove-Com
 boolean motorsEnabled = 0;
 
 void setup() {   
-	Serial.begin(9600);
-	makeComInterface();
-	initHardware();
+Serial.begin(9600);
+makeComInterface();
+initHardware();
 }
 
 void loop() {
-	moveOneStep();
+moveOneStep();
 
-	SCmd.readSerial();
+SCmd.readSerial();
 
 #ifdef penToggleButton
-	penToggle.check();
+penToggle.check();
 #endif
 
 #ifdef motorsButton
-	motorsToggle.check();
+motorsToggle.check();
 #endif
 
 #ifdef prgButton
-	prgButtonToggle.check();
+prgButtonToggle.check();
 #endif
 }

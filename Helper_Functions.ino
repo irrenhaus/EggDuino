@@ -2,12 +2,19 @@
 
 void initHardware(){
 	// enable eeprom wait in avr/eeprom.h functions
+#ifdef BOARD_MOTOR_SHIELD
+    SPMCSR &= ~SPMEN;
+#else
 	SPMCSR &= ~SELFPRGEN;
+#endif
 
 	loadPenPosFromEE();
 
+#ifndef BOARD_MOTOR_SHIELD
 	pinMode(enableRotMotor, OUTPUT);
 	pinMode(enablePenMotor, OUTPUT);
+#endif
+
 	pinMode(engraverPin, OUTPUT);
 
 	rotMotor.setMaxSpeed(2000.0);
@@ -44,14 +51,21 @@ void sendError(){
 }
 
 void motorsOff() {
+#ifdef BOARD_MOTOR_SHIELD
+    motor1.release();
+    motor2.release();
+#else
 	digitalWrite(enableRotMotor, HIGH);
 	digitalWrite(enablePenMotor, HIGH);
+#endif
 	motorsEnabled = 0;
 }
 
 void motorsOn() {
+#ifndef BOARD_MOTOR_SHIELD
 	digitalWrite(enableRotMotor, LOW) ;
 	digitalWrite(enablePenMotor, LOW) ;
+#endif
 	motorsEnabled = 1;
 }
 
@@ -92,9 +106,20 @@ void prepareMove(uint16_t duration, int penStepsEBB, int rotStepsEBB) {
 	if( (1 == rotStepCorrection) && (1 == penStepCorrection) ){ // if coordinatessystems are identical
 		//set Coordinates and Speed
 		rotMotor.move(rotStepsEBB);
+#ifdef BOARD_MOTOR_SHIELD
+        float rotSpeed = (float)rotStepsEBB * (float)1000 / (float)duration;
+        rotMotor.setSpeed(rotSpeed);
+#else
 		rotMotor.setSpeed( abs( (float)rotStepsEBB * (float)1000 / (float)duration ) );
+#endif
+
 		penMotor.move(penStepsEBB);
+#ifdef BOARD_MOTOR_SHIELD
+        float penSpeed = (float)penStepsEBB * (float)1000 / (float)duration;
+        penMotor.setSpeed(penSpeed);
+#else
 		penMotor.setSpeed( abs( (float)penStepsEBB * (float)1000 / (float)duration ) );
+#endif
 	} else {
 		//incoming EBB-Steps will be multiplied by 16, then Integer-maths is done, result will be divided by 16
 		// This make thinks here really complicated, but floating point-math kills performance and memory, believe me... I tried...
@@ -110,8 +135,13 @@ void prepareMove(uint16_t duration, int penStepsEBB, int rotStepsEBB) {
 		long temp_rotSpeed =  ((long)rotStepsToGo * (long)1000 / (long)duration );	// calc Speed in Integer Math
 		long temp_penSpeed =  ((long)penStepsToGo * (long)1000 / (long)duration ) ;
 
+#ifdef BOARD_MOTOR_SHIELD
+		float rotSpeed= (float) (temp_rotSpeed);	// type cast
+		float penSpeed= (float) (temp_penSpeed);
+#else
 		float rotSpeed= (float) abs(temp_rotSpeed);	// type cast
 		float penSpeed= (float) abs(temp_penSpeed);
+#endif
 
 		//set Coordinates and Speed
 		rotMotor.move(rotStepsToGo);		// finally, let us set the target position...
