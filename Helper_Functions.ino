@@ -1,4 +1,4 @@
-
+#define SELFPRGEN  0
 
 void initHardware(){
 	// enable eeprom wait in avr/eeprom.h functions
